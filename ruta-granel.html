@@ -469,7 +469,7 @@ Si un campo no existe deja el valor como string vacío "". Devuelve siempre un a
         `;
         showToast(`✅ ${clients.length} cliente(s) detectados`);
       } catch(e) {
-        showToast('⚠️ No se pudo leer. Intenta con mejor iluminación.');
+        showToast('⚠️ Error: ' + (e.message||String(e))); console.error('API Error:', e);
         document.getElementById('scan-area').style.display='block';
       }
       document.getElementById('loading-bar').style.display='none';
