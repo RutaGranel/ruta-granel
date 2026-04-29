@@ -1,0 +1,914 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
+<title>Ruta Granel</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/tesseract.js@5/dist/tesseract.min.js"></script>
+<script src="https://unpkg.com/open-location-code/openlocationcode.js"></script>
+<style>
+:root{--bg:#0f1117;--surface:#1a1d27;--surface2:#22263a;--accent:#f5a623;--accent2:#e8530a;--text:#eef0f7;--text2:#8b90a7;--green:#2ecc71;--red:#e74c3c;--border:rgba(255,255,255,0.07);--radius:14px}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--text);font-family:'DM Sans',sans-serif;min-height:100vh;max-width:480px;margin:0 auto}
+.header{background:linear-gradient(135deg,#1a1d27,#0f1117);padding:20px 20px 0;border-bottom:1px solid var(--border);position:sticky;top:0;z-index:100}
+.header-top{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px}
+.logo{font-family:'Bebas Neue',sans-serif;font-size:28px;letter-spacing:2px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent}
+.tabs{display:flex;gap:4px}
+.tab{flex:1;padding:10px;text-align:center;font-size:13px;font-weight:500;color:var(--text2);cursor:pointer;border-bottom:2px solid transparent;transition:all 0.2s}
+.tab.active{color:var(--accent);border-bottom-color:var(--accent)}
+.content{padding:20px}
+.screen{display:none}.screen.active{display:block}
+.search-box{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:12px 16px;display:flex;align-items:center;gap:10px;margin-bottom:16px}
+.search-box input{background:none;border:none;outline:none;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;width:100%}
+.search-box input::placeholder{color:var(--text2)}
+.client-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:12px;cursor:pointer;transition:all 0.2s;position:relative;overflow:hidden}
+.client-card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(var(--accent),var(--accent2))}
+.client-card.has-geo::before{background:linear-gradient(var(--green),#27ae60)}
+.card-header{display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:8px}
+.client-code{font-family:'Bebas Neue',sans-serif;font-size:20px;letter-spacing:1px;color:var(--accent)}
+.geo-badge{font-size:11px;padding:3px 8px;border-radius:10px;font-weight:500}
+.geo-badge.ok{background:rgba(46,204,113,0.15);color:var(--green)}
+.geo-badge.missing{background:rgba(231,76,60,0.15);color:var(--red)}
+.dist-badge{font-size:11px;padding:3px 8px;border-radius:10px;font-weight:600;background:rgba(245,166,35,0.15);color:var(--accent)}
+.client-name{font-weight:600;font-size:15px;margin-bottom:4px}
+.client-address{font-size:13px;color:var(--text2);margin-bottom:6px}
+.card-footer{display:flex;gap:8px;flex-wrap:wrap}
+.chip{font-size:11px;padding:3px 8px;border-radius:8px;background:var(--surface2);color:var(--text2)}
+.empty{text-align:center;padding:60px 20px;color:var(--text2)}
+.empty-icon{font-size:48px;margin-bottom:16px}
+.empty h3{font-size:18px;color:var(--text);margin-bottom:8px}
+.empty p{font-size:14px;line-height:1.6}
+.fab{position:fixed;bottom:24px;right:24px;width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,var(--accent),var(--accent2));border:none;color:white;font-size:24px;cursor:pointer;box-shadow:0 4px 20px rgba(245,166,35,0.4);transition:all 0.2s;display:flex;align-items:center;justify-content:center;z-index:200}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,0.7);z-index:300;align-items:flex-end;backdrop-filter:blur(4px)}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface);border-radius:24px 24px 0 0;padding:24px;width:100%;max-height:90vh;overflow-y:auto;animation:slideUp 0.3s ease}
+@keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+.modal-handle{width:40px;height:4px;background:var(--border);border-radius:2px;margin:0 auto 20px}
+.modal-title{font-family:'Bebas Neue',sans-serif;font-size:24px;letter-spacing:1px;margin-bottom:20px;color:var(--accent)}
+.form-group{margin-bottom:16px}
+.form-label{font-size:12px;color:var(--text2);font-weight:500;margin-bottom:6px;display:block;letter-spacing:0.5px;text-transform:uppercase}
+.form-input{width:100%;background:var(--bg);border:1px solid var(--border);border-radius:10px;padding:12px 14px;color:var(--text);font-family:'DM Sans',sans-serif;font-size:15px;outline:none;transition:border-color 0.2s}
+.form-input:focus{border-color:var(--accent)}
+.form-input::placeholder{color:var(--text2)}
+.form-row{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.btn{width:100%;padding:14px;border-radius:var(--radius);border:none;font-family:'DM Sans',sans-serif;font-size:15px;font-weight:600;cursor:pointer;transition:all 0.2s;margin-bottom:10px}
+.btn-primary{background:linear-gradient(135deg,var(--accent),var(--accent2));color:white}
+.btn-secondary{background:var(--surface2);color:var(--text);border:1px solid var(--border)}
+.btn-ghost{background:none;color:var(--text2)}
+.btn-danger{background:rgba(231,76,60,0.15);color:var(--red);border:1px solid rgba(231,76,60,0.2)}
+.btn-geo{background:rgba(46,204,113,0.1);color:var(--green);border:1px solid rgba(46,204,113,0.2)}
+.detail-header{display:flex;align-items:center;gap:12px;margin-bottom:20px}
+.back-btn{background:var(--surface2);border:none;color:var(--text);width:48px;height:48px;border-radius:12px;cursor:pointer;font-size:32px;font-weight:700;display:flex;align-items:center;justify-content:center}
+.detail-code{font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--accent);letter-spacing:1px}
+.detail-section{background:var(--surface2);border-radius:var(--radius);padding:16px;margin-bottom:12px}
+.detail-section-title{font-size:11px;color:var(--text2);text-transform:uppercase;letter-spacing:0.5px;margin-bottom:12px;font-weight:600}
+.detail-row{display:flex;justify-content:space-between;margin-bottom:8px}
+.detail-label{font-size:13px;color:var(--text2)}
+.detail-value{font-size:13px;font-weight:500;text-align:right;max-width:60%}
+.ruta-header{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:16px;margin-bottom:16px}
+.ruta-title{font-family:'Bebas Neue',sans-serif;font-size:22px;color:var(--accent);margin-bottom:8px}
+.ruta-subtitle{font-size:13px;color:var(--text2)}
+.checkbox-item{display:flex;align-items:center;gap:10px;padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:10px;margin-bottom:8px;cursor:pointer}
+.checkbox-item input{width:18px;height:18px;accent-color:var(--accent)}
+.checkbox-label{font-size:14px}
+.checkbox-label small{display:block;color:var(--text2);font-size:12px}
+.divider{height:1px;background:var(--border);margin:16px 0}
+.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:10px 20px;font-size:14px;z-index:999;display:none;white-space:nowrap}
+.toast.show{display:block;animation:fadeInOut 3s forwards}
+@keyframes fadeInOut{0%{opacity:0;transform:translateX(-50%) translateY(10px)}15%{opacity:1;transform:translateX(-50%) translateY(0)}80%{opacity:1}100%{opacity:0}}
+.spinner{width:40px;height:40px;border:3px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.8s linear infinite;margin:60px auto 16px}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+.logout-header-btn{width:48px;height:48px;border-radius:50%;background:rgba(231,76,60,0.18);border:2px solid rgba(231,76,60,0.55);color:#ff5a4f;font-size:30px;font-weight:900;line-height:1;display:flex;align-items:center;justify-content:center;cursor:pointer;box-shadow:0 4px 14px rgba(231,76,60,0.28);transition:transform .15s,background .15s}.logout-header-btn:active{transform:scale(.94);background:rgba(231,76,60,0.28)}
+#role-badge{font-size:11px;padding:3px 10px;border-radius:10px;background:var(--surface2);color:var(--text2)}
+
+</style>
+</head>
+<body>
+
+<!-- LOGIN -->
+<div id="login-screen" style="display:none;position:fixed;inset:0;background:var(--bg);z-index:1000;flex-direction:column;align-items:center;justify-content:center;padding:32px">
+  <div style="font-family:'Bebas Neue',sans-serif;font-size:52px;background:linear-gradient(90deg,var(--accent),var(--accent2));-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin-bottom:8px">RUTA GRANEL</div>
+  <div style="font-size:13px;color:var(--text2);margin-bottom:40px">Selecciona tu perfil</div>
+  <div style="width:100%;max-width:340px">
+    <div style="background:var(--surface);border:1px solid rgba(245,166,35,0.3);border-radius:16px;padding:28px;margin-bottom:24px;text-align:center">
+      <div style="font-size:48px;margin-bottom:8px">🚚</div>
+      <div style="font-family:'Bebas Neue',sans-serif;font-size:28px;color:var(--text);margin-bottom:4px">Chofer o Ayudante</div>
+      <div style="font-size:12px;color:var(--text2);margin-bottom:20px">Acceso directo sin contraseña</div>
+      <button onclick="loginChofer()" class="btn btn-primary" style="margin-bottom:0;font-size:16px">Entrar</button>
+    </div>
+    <div style="border-top:1px solid var(--border);padding-top:16px">
+      <div style="font-size:11px;color:var(--text2);margin-bottom:8px;text-align:center">Acceso Administrador</div>
+      <div style="display:flex;gap:8px">
+        <input type="password" id="admin-pass" class="form-input" placeholder="Contraseña" style="font-size:12px;padding:8px 10px" onkeydown="if(event.key==='Enter')loginAdmin()">
+        <button onclick="loginAdmin()" style="background:var(--surface2);border:1px solid var(--border);color:var(--text2);padding:8px 14px;border-radius:10px;cursor:pointer;font-size:12px;white-space:nowrap">Entrar</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app-container" style="display:none">
+<div class="header">
+  <div class="header-top">
+    <div class="logo">Ruta Granel</div>
+    <div style="display:flex;align-items:center;gap:8px">
+      <span id="sync-dot" style="font-size:11px;color:var(--green);display:none">● En línea</span>
+      <span id="role-badge" style="font-size:11px;padding:3px 10px;border-radius:10px;background:var(--surface2);color:var(--text2)"></span>
+      <div style="background:var(--surface2);border:1px solid var(--border);border-radius:20px;padding:4px 12px;font-size:13px;color:var(--text2)">Clientes: <span id="total-count" style="color:var(--accent);font-weight:600">0</span></div>
+      <button onclick="logout()" class="logout-header-btn" title="Cerrar sesión">×</button>
+    </div>
+  </div>
+  <div class="tabs">
+    <div class="tab active" onclick="showTab('clientes')">📋 Clientes</div>
+    <div class="tab" onclick="showTab('ruta')">🗺️ Ruta</div>
+  </div>
+</div>
+
+<div class="content">
+  <div id="screen-clientes" class="screen active">
+    <div class="search-box">
+      <span>🔍</span>
+      <input type="text" placeholder="Buscar código, nombre, dirección, comuna, medidor..." id="search-input" oninput="renderClients()">
+    </div>
+    <div id="clients-list"><div class="spinner"></div><p style="text-align:center;color:var(--text2)">Cargando...</p></div>
+  </div>
+
+  <div id="screen-ruta" class="screen">
+    <div class="ruta-header">
+      <div class="ruta-title">Ruta del Día</div>
+      <div class="ruta-subtitle">Busca y selecciona los clientes a visitar</div>
+    </div>
+    <div id="ruta-selector"></div>
+    <button class="btn btn-primary" onclick="generateRoute()" id="gen-route-btn" style="display:none">🗺️ Ver en mapa</button>
+    <div id="map-container" style="display:none;margin-top:16px">
+      <div id="ruta-map" style="height:420px;border-radius:16px;overflow:hidden;border:1px solid var(--border)"></div>
+      <p style="font-size:12px;color:var(--text2);margin-top:8px;text-align:center">Toca un pin → elige Maps o Waze para navegar</p>
+    </div>
+    <div id="ruta-result"></div>
+  </div>
+
+  <div id="screen-detail" class="screen">
+    <div class="detail-header">
+      <button class="back-btn" onclick="backToList()">←</button>
+      <div>
+        <div class="detail-code" id="detail-code"></div>
+        <div style="font-size:13px;color:var(--text2)" id="detail-name"></div>
+      </div>
+    </div>
+    <div id="detail-content"></div>
+  </div>
+</div>
+</div>
+
+<button class="fab" onclick="openAddModal()" id="fab-btn" style="display:none">+</button>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <div class="modal-handle"></div>
+    <div class="modal-title" id="modal-title">Nuevo Cliente</div>
+    <div class="form-group">
+      <label class="form-label">📷 Importar desde imagen</label>
+      <input class="form-input" type="file" id="img-client" accept="image/*" style="margin-bottom:8px">
+      <button class="btn btn-secondary" style="margin-bottom:0" onclick="autoImportClientFromImage()">📄 Leer y completar automático</button>
+    </div>
+    <div class="divider" style="height:1px;background:var(--border);margin:8px 0"></div>
+    <div class="form-group"><label class="form-label">Código *</label><input class="form-input" id="f-code" placeholder="CN_0004022"></div>
+    <div class="form-group"><label class="form-label">Nombre</label><input class="form-input" id="f-name" placeholder="Abastible Concon"></div>
+    <div class="form-group"><label class="form-label">Dirección</label><input class="form-input" id="f-address" placeholder="2 Norte 655"></div>
+    <div class="form-group"><label class="form-label">Comuna</label><input class="form-input" id="f-comuna" placeholder="Concón"></div>
+    <div class="form-group"><label class="form-label">Medidor</label><input class="form-input" id="f-medidor" placeholder="E-00115710-CEN001"></div>
+    <div class="form-row">
+      <div class="form-group"><label class="form-label">Teléfono</label><input class="form-input" id="f-phone" placeholder="322712735"></div>
+      <div class="form-group"><label class="form-label">Contacto</label><input class="form-input" id="f-contact" placeholder="Juan Pérez"></div>
+    </div>
+    <div class="form-group"><label class="form-label">Observaciones</label><input class="form-input" id="f-notes" placeholder="Ej: Recibe solo mañanas, acceso por portón lateral"></div>
+    <div class="form-group">
+      <label class="form-label">📍 Ubicación GPS</label>
+      <input class="form-input" id="f-coords" placeholder="Pega coordenadas o Plus Code: -32.929122,-71.487676 / 3QV4+2RP Quillota" style="font-size:13px;margin-bottom:8px" oninput="splitCoords()">
+      <input type="hidden" id="f-lat">
+      <input type="hidden" id="f-lng">
+      <button type="button" onclick="captureGeoForm()" style="width:100%;padding:10px;background:rgba(46,204,113,0.1);color:var(--green);border:1px solid rgba(46,204,113,0.2);border-radius:10px;font-family:'DM Sans',sans-serif;font-size:13px;font-weight:600;cursor:pointer">📍 Usar mi ubicación actual</button>
+    </div>
+    <button class="btn btn-primary" id="modal-save-btn" onclick="saveClient()">☁️ Guardar</button>
+    <button onclick="closeAddModal()" style="width:100%;padding:14px;border-radius:var(--radius);border:2px solid var(--red);background:rgba(231,76,60,0.1);color:var(--red);font-family:'DM Sans',sans-serif;font-size:18px;font-weight:700;cursor:pointer">✕ Cancelar</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+import { getFirestore, collection, addDoc, doc, updateDoc, deleteDoc, onSnapshot } from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyCs_AiWLY0U6yGr-7chAL8VLkzHViqu1GM",
+  authDomain: "granelconductores-16867.firebaseapp.com",
+  projectId: "granelconductores-16867",
+  storageBucket: "granelconductores-16867.firebasestorage.app",
+  messagingSenderId: "887650733053",
+  appId: "1:887650733053:web:2cf4391f2397e511026794"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getFirestore(app);
+const clientsCol = collection(db, 'clientes');
+
+window._db = db;
+window._clientsCol = clientsCol;
+window._updateDoc = updateDoc;
+window._deleteDoc = deleteDoc;
+window._doc = doc;
+window._addDoc = addDoc;
+window._clients = [];
+
+onSnapshot(clientsCol, (snapshot) => {
+  window._clients = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+  document.getElementById('total-count').textContent = window._clients.length;
+  document.getElementById('sync-dot').style.display = 'inline';
+  if (window._currentTab === 'clientes') renderClients();
+}, () => showToast('⚠️ Error de conexión'));
+
+checkAuth();
+</script>
+
+<script>
+// ── Escape HTML to prevent XSS / broken layouts ──
+function escapeHTML(value) {
+  return String(value ?? '')
+    .replaceAll('&', '&amp;')
+    .replaceAll('<', '&lt;')
+    .replaceAll('>', '&gt;')
+    .replaceAll('"', '&quot;')
+    .replaceAll("'", '&#039;');
+}
+
+let ADMIN_PASS = null; // loaded from Firestore
+window._isAdmin = false;
+function canCreateClient(){ return true; }
+function canManageClient(){ return window._isAdmin === true; }
+window._currentTab = 'clientes';
+window._currentDetailId = null;
+window._selectedRouteIds = new Set();
+window._userLat = null;
+window._userLng = null;
+let _rutaMap = null;
+
+// AUTH
+async function checkAuth() {
+  // Load admin password from Firestore
+  try {
+    const { getDoc, doc } = await import("https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js");
+    const snap = await getDoc(doc(window._db, 'config', 'admin'));
+    if (snap.exists()) ADMIN_PASS = snap.data().pass;
+  } catch(e) { console.warn('Could not load config', e); }
+
+  const role = sessionStorage.getItem('rg_role');
+  if (role === 'admin') { window._isAdmin = true; showApp(); }
+  else if (role === 'chofer') { window._isAdmin = false; showApp(); }
+  else showLoginScreen();
+}
+
+function showLoginScreen() {
+  document.getElementById('login-screen').style.display = 'flex';
+  document.getElementById('app-container').style.display = 'none';
+  document.getElementById('fab-btn').style.display = 'none';
+}
+
+function showApp() {
+  document.getElementById('login-screen').style.display = 'none';
+  document.getElementById('app-container').style.display = 'block';
+  document.getElementById('fab-btn').style.display = 'flex';
+  document.getElementById('role-badge').textContent = window._isAdmin ? '👑 Admin' : '👤 Chofer';
+  startLocationTracking();
+  renderClients();
+}
+
+function loginAdmin() {
+  if (!ADMIN_PASS) { showToast('⚠️ Error de conexión, intenta de nuevo'); return; }
+  const pass = document.getElementById('admin-pass').value;
+  if (pass === ADMIN_PASS) {
+    sessionStorage.setItem('rg_role', 'admin');
+    window._isAdmin = true;
+    showApp();
+  } else { showToast('❌ Contraseña incorrecta'); }
+}
+
+function loginChofer() {
+  sessionStorage.setItem('rg_role', 'chofer');
+  window._isAdmin = false;
+  showApp();
+}
+
+function logout() {
+  sessionStorage.removeItem('rg_role');
+  showLoginScreen();
+}
+
+// GPS
+function startLocationTracking() {
+  if (!navigator.geolocation) return;
+  navigator.geolocation.watchPosition(pos => {
+    window._userLat = pos.coords.latitude;
+    window._userLng = pos.coords.longitude;
+    if (window._currentTab === 'clientes') renderClients();
+  }, null, { enableHighAccuracy: true, maximumAge: 30000 });
+}
+
+function calcDistance(lat1, lng1, lat2, lng2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLng = (lng2 - lng1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)*Math.sin(dLat/2) + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLng/2)*Math.sin(dLng/2);
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+
+function formatDistance(km) {
+  return km < 1 ? Math.round(km * 1000) + ' m' : km.toFixed(1) + ' km';
+}
+
+
+// Chile center used as reference for short Plus Codes
+const CHILE_REF_LAT = -35.0;
+const CHILE_REF_LNG = -71.0;
+
+function isPlusCode(text) {
+  // Plus Code pattern: alphanumeric chars + plus sign + alphanumeric, optionally city after space
+  // Covers full (8+2) and short (2-6 chars before +)
+  const t = text.trim().toUpperCase();
+  return /^[23456789CFGHJMPQRVWX]{2,8}\+[23456789CFGHJMPQRVWX]{2,3}(\s.*)?$/.test(t);
+}
+
+function decodePlusCode(text) {
+  try {
+    const code = text.trim().split(/\s+/)[0]; // take only the code part
+    let decoded;
+    if (typeof OpenLocationCode === 'undefined') return null;
+    if (OpenLocationCode.isFull(code)) {
+      decoded = OpenLocationCode.decode(code);
+    } else if (OpenLocationCode.isShort(code)) {
+      const full = OpenLocationCode.recoverNearest(code, CHILE_REF_LAT, CHILE_REF_LNG);
+      decoded = OpenLocationCode.decode(full);
+    } else {
+      return null;
+    }
+    const lat = decoded.latitudeCenter;
+    const lng = decoded.longitudeCenter;
+    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    return { lat, lng };
+  } catch(e) {
+    return null;
+  }
+}
+
+function parseCoordPair(raw) {
+  if (raw === null || raw === undefined) return null;
+  let text = String(raw).trim();
+  if (!text) return null;
+
+  // Try Plus Code first
+  if (isPlusCode(text)) {
+    const plusResult = decodePlusCode(text);
+    if (plusResult) return plusResult;
+    return { error: 'plus_code_failed' }; // detected but failed to decode
+  }
+
+  // Extract coords from Google Maps URLs
+  text = text.replace(/https?:\/\/[^\s]+/g, m => {
+    const at = m.match(/@(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/);
+    if (at) return at[1] + ',' + at[2];
+    const q = m.match(/[?&](?:q|ll|destination)=(-?\d+(?:\.\d+)?),\s*(-?\d+(?:\.\d+)?)/);
+    if (q) return q[1] + ',' + q[2];
+    return m;
+  });
+
+  // Extract raw numbers (handles with or without space after comma)
+  const nums = text.match(/-?\d+(?:\.\d+)?/g);
+  if (!nums || nums.length < 2) return null;
+  const lat = parseFloat(nums[0]);
+  const lng = parseFloat(nums[1]);
+  if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+  if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+  return { lat, lng };
+}
+
+function clientLat(c) { return typeof c.lat === 'number' ? c.lat : parseFloat(c.lat); }
+function clientLng(c) { return typeof c.lng === 'number' ? c.lng : parseFloat(c.lng); }
+function hasClientGeo(c) {
+  const lat = clientLat(c), lng = clientLng(c);
+  return Number.isFinite(lat) && Number.isFinite(lng);
+}
+
+// TABS
+function showTab(tab) {
+  window._currentTab = tab;
+  document.querySelectorAll('.tab').forEach((t,i) => t.classList.toggle('active', (i===0&&tab==='clientes')||(i===1&&tab==='ruta')));
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + tab).classList.add('active');
+  document.getElementById('fab-btn').style.display = tab === 'clientes' ? 'flex' : 'none';
+  if (tab === 'ruta') { resetRutaMap(); renderRutaSelector(); }
+}
+
+// CLIENTS
+function renderClients() {
+  const clients = window._clients || [];
+  const q = (document.getElementById('search-input')?.value || '').toLowerCase();
+  const filtered = clients.filter(c =>
+    (c.code||'').toLowerCase().includes(q) ||
+    (c.name||'').toLowerCase().includes(q) ||
+    (c.address||'').toLowerCase().includes(q) ||
+    (c.comuna||'').toLowerCase().includes(q) ||
+    (c.medidor||'').toLowerCase().includes(q)
+  );
+  const list = document.getElementById('clients-list');
+  if (!list) return;
+  if (clients.length === 0) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">🚚</div><h3>Sin clientes</h3><p>Toca <strong style="color:var(--accent)">+</strong> para agregar tu primer cliente.</p></div>';
+    return;
+  }
+  if (filtered.length === 0) {
+    list.innerHTML = '<div class="empty"><div class="empty-icon">🔍</div><h3>Sin resultados</h3></div>';
+    return;
+  }
+  list.innerHTML = filtered.map(c => {
+    const hasGeo = hasClientGeo(c);
+    const lat = clientLat(c), lng = clientLng(c);
+    const dist = (hasGeo && window._userLat) ? '<span class="dist-badge">📏 ' + formatDistance(calcDistance(window._userLat, window._userLng, lat, lng)) + '</span>' : '';
+    return '<div class="client-card ' + (hasGeo ? 'has-geo' : '') + '" onclick="showDetail(\'' + c.id + '\')">' +
+      '<div class="card-header"><div class="client-code">' + escapeHTML(c.code) + '</div>' +
+      '<div style="display:flex;gap:6px;align-items:center">' + dist +
+      '<span class="geo-badge ' + (hasGeo ? 'ok' : 'missing') + '">' + (hasGeo ? '📍 Ubicado' : '⚠️ Sin GPS') + '</span></div></div>' +
+      '<div class="client-name">' + escapeHTML(c.name) + '</div>' +
+      '<div class="client-address">' + escapeHTML(c.address) + (c.comuna ? ', ' + escapeHTML(c.comuna) : '') + '</div>' +
+      '<div class="card-footer">' +
+      (c.medidor ? '<span class="chip">🔧 ' + escapeHTML(c.medidor) + '</span>' : '') +
+      (c.phone ? '<span class="chip">📞 ' + escapeHTML(c.phone) + '</span>' : '') +
+      (c.notes ? '<span class="chip">📝 Obs.</span>' : '') +
+      '</div></div>';
+  }).join('');
+}
+
+// DETAIL
+function showDetail(id) {
+  const c = (window._clients||[]).find(x => x.id === id);
+  if (!c) return;
+  window._currentDetailId = id;
+  document.getElementById('detail-code').textContent = c.code || '';
+  document.getElementById('detail-name').textContent = c.name || '';
+
+  let html = '<div class="detail-section"><div class="detail-section-title">Información</div>';
+  if (c.name) html += '<div class="detail-row"><span class="detail-label">Nombre</span><span class="detail-value">' + c.name + '</span></div>';
+  if (c.medidor) html += '<div class="detail-row"><span class="detail-label">Medidor</span><span class="detail-value">' + c.medidor + '</span></div>';
+  if (c.phone) html += '<div class="detail-row"><span class="detail-label">Teléfono</span><span class="detail-value">' + c.phone + '</span></div>';
+  if (c.contact) html += '<div class="detail-row"><span class="detail-label">Contacto</span><span class="detail-value">' + c.contact + '</span></div>';
+  if (c.address) html += '<div class="detail-row"><span class="detail-label">Dirección</span><span class="detail-value">' + c.address + '</span></div>';
+  if (c.comuna) html += '<div class="detail-row"><span class="detail-label">Comuna</span><span class="detail-value">' + c.comuna + '</span></div>';
+  html += '</div>';
+
+  if (c.notes) html += '<div class="detail-section"><div class="detail-section-title">Observaciones</div><div style="font-size:14px;color:var(--text2);line-height:1.6">' + c.notes + '</div></div>';
+
+  html += '<div class="detail-section"><div class="detail-section-title">Georreferencia</div>';
+  const hasGeo = hasClientGeo(c);
+  const lat = clientLat(c), lng = clientLng(c);
+  if (hasGeo) {
+    html += '<div class="detail-row"><span class="detail-label">Latitud</span><span class="detail-value">' + lat.toFixed(6) + '</span></div>';
+    html += '<div class="detail-row"><span class="detail-label">Longitud</span><span class="detail-value">' + lng.toFixed(6) + '</span></div>';
+    if (window._userLat) html += '<div class="detail-row"><span class="detail-label">Distancia</span><span class="detail-value">' + formatDistance(calcDistance(window._userLat, window._userLng, lat, lng)) + '</span></div>';
+    html += '<button class="btn btn-secondary" style="margin-top:10px" onclick="navigateTo(' + lat + ',' + lng + ')">🗺️ Navegar (Maps)</button>';
+    html += '<a href="waze://?ll=' + lat + ',' + lng + '&navigate=yes" style="display:block;width:100%;padding:14px;border-radius:var(--radius);background:rgba(51,204,255,0.1);color:#33ccff;border:1px solid rgba(51,204,255,0.2);text-align:center;text-decoration:none;font-weight:600;font-size:15px;margin-bottom:10px">🚗 Navegar (Waze)</a>';
+    html += '<button class="btn btn-geo" onclick="captureGeo(\'' + id + '\')">📍 Actualizar GPS</button>';
+  } else {
+    html += '<p style="font-size:13px;color:var(--text2);margin-bottom:12px">Sin ubicación GPS.</p>';
+    html += '<button class="btn btn-geo" onclick="captureGeo(\'' + id + '\')">📍 Estoy aquí — Guardar ubicación</button>';
+  }
+
+  html += '<div style="margin-top:12px;padding-top:12px;border-top:1px solid var(--border)">';
+  html += '<p style="font-size:12px;color:var(--text2);margin-bottom:8px">Pegar coordenadas o Plus Code:</p>';
+  html += '<input id="manual-coords" class="form-input" style="font-size:13px;margin-bottom:8px" value="' + (hasGeo ? lat.toFixed(6) + ',' + lng.toFixed(6) : '') + '" placeholder="-32.929156,-71.487688 / 3QV4+2RP Quillota" oninput="splitManualCoords()">';
+  html += '<input type="hidden" id="manual-lat" value="' + (hasGeo ? lat.toFixed(6) : '') + '">';
+  html += '<input type="hidden" id="manual-lng" value="' + (hasGeo ? lng.toFixed(6) : '') + '">';
+  html += '<button class="btn btn-secondary" style="margin-bottom:0" onclick="saveManualGeo(\'' + id + '\')">💾 Guardar coordenadas</button>';
+  html += '</div>';
+
+  html += '<button class="btn btn-secondary" onclick="editClient(\'' + id + '\')">✏️ Editar datos</button>';
+  html += '<button class="btn btn-danger" onclick="deleteClient(\'' + id + '\')">🗑️ Eliminar cliente</button>';
+
+  document.getElementById('detail-content').innerHTML = html;
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-detail').classList.add('active');
+  document.getElementById('fab-btn').style.display = 'none';
+}
+
+function backToList() {
+  document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+  document.getElementById('screen-' + window._currentTab).classList.add('active');
+  document.getElementById('fab-btn').style.display = window._currentTab === 'clientes' ? 'flex' : 'none';
+}
+
+function navigateTo(lat, lng) {
+  window.open('https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng + '&travelmode=driving', '_blank');
+}
+
+// GPS ACTIONS
+async function captureGeo(id) {
+  if (!navigator.geolocation) { showToast('❌ GPS no disponible'); return; }
+  showToast('📡 Obteniendo ubicación...');
+  navigator.geolocation.getCurrentPosition(async pos => {
+    try {
+      await window._updateDoc(window._doc(window._db, 'clientes', id), { lat: pos.coords.latitude, lng: pos.coords.longitude });
+      showToast('✅ Ubicación guardada');
+      showDetail(id);
+    } catch(e) { showToast('❌ Error al guardar'); }
+  }, () => showToast('❌ No se pudo obtener GPS'));
+}
+
+async function saveManualGeo(id) {
+  const pairFromPaste = parseCoordPair(document.getElementById('manual-coords')?.value || '');
+  const pairFromInputs = parseCoordPair((document.getElementById('manual-lat')?.value || '') + ',' + (document.getElementById('manual-lng')?.value || ''));
+  const pair = (pairFromPaste && !pairFromPaste.error) ? pairFromPaste : (pairFromInputs && !pairFromInputs.error) ? pairFromInputs : null;
+  if (!pair) { showToast('⚠️ Ingresa coordenadas como: -32.929156,-71.487688'); return; }
+  try {
+    await window._updateDoc(window._doc(window._db, 'clientes', id), { lat: pair.lat, lng: pair.lng });
+    showToast('✅ Coordenadas guardadas');
+    showDetail(id);
+  } catch(e) { showToast('❌ Error al guardar'); }
+}
+
+function splitManualCoords() {
+  const raw = document.getElementById('manual-coords')?.value || '';
+  if (!raw.trim()) return;
+  const pair = parseCoordPair(raw);
+  if (!pair) return;
+  if (pair.error) {
+    showToast('⚠️ No se pudo leer. Ingresa coordenadas como: -32.929156,-71.487688');
+    return;
+  }
+  document.getElementById('manual-lat').value = pair.lat.toFixed(6);
+  document.getElementById('manual-lng').value = pair.lng.toFixed(6);
+}
+
+function splitCoords() {
+  const raw = document.getElementById('f-coords')?.value || '';
+  if (!raw.trim()) return;
+  const pair = parseCoordPair(raw);
+  if (!pair) return;
+  if (pair.error) {
+    showToast('⚠️ No se pudo leer. Ingresa coordenadas como: -32.929156,-71.487688');
+    return;
+  }
+  document.getElementById('f-lat').value = pair.lat.toFixed(6);
+  document.getElementById('f-lng').value = pair.lng.toFixed(6);
+}
+
+function captureGeoForm() {
+  if (!navigator.geolocation) { showToast('❌ GPS no disponible'); return; }
+  showToast('📡 Obteniendo ubicación...');
+  navigator.geolocation.getCurrentPosition(pos => {
+    document.getElementById('f-lat').value = pos.coords.latitude.toFixed(6);
+    document.getElementById('f-lng').value = pos.coords.longitude.toFixed(6);
+    document.getElementById('f-coords').value = pos.coords.latitude.toFixed(6) + ',' + pos.coords.longitude.toFixed(6);
+    showToast('✅ Ubicación capturada');
+  }, () => showToast('❌ No se pudo obtener GPS'));
+}
+
+// DELETE
+async function deleteClient(id) {
+  if (!canManageClient()) { showToast('⚠️ Solo administrador puede eliminar'); return; }
+  if (!confirm('¿Eliminar este cliente?')) return;
+  try {
+    await window._deleteDoc(window._doc(window._db, 'clientes', id));
+    showToast('🗑️ Cliente eliminado');
+    backToList();
+  } catch(e) { showToast('❌ Error al eliminar'); }
+}
+
+// MODAL
+function openAddModal() {
+  if (!canCreateClient()) { showToast('⚠️ Sin permiso para crear clientes'); return; }
+  ['f-code','f-name','f-address','f-comuna','f-medidor','f-phone','f-contact','f-notes','f-lat','f-lng','f-coords'].forEach(id => { const el = document.getElementById(id); if(el) el.value=''; });
+  document.getElementById('modal-title').textContent = 'Nuevo Cliente';
+  document.getElementById('modal-save-btn').textContent = '☁️ Guardar';
+  document.getElementById('modal-save-btn').onclick = saveClient;
+  document.getElementById('add-modal').classList.add('open');
+}
+
+function closeAddModal(skipConfirm = false) {
+  if (!skipConfirm) {
+    const hasData = ['f-code','f-name','f-address','f-comuna','f-medidor','f-phone','f-contact','f-notes','f-coords'].some(id => {
+      const el = document.getElementById(id);
+      return el && el.value.trim() !== '';
+    });
+    if (hasData && !confirm('¿Seguro que quieres cancelar? Los datos no se guardarán.')) return;
+  }
+  document.getElementById('add-modal').classList.remove('open');
+}
+
+function getFormCoords() {
+  const pair = parseCoordPair(document.getElementById('f-coords')?.value || '') || parseCoordPair((document.getElementById('f-lat')?.value || '') + ',' + (document.getElementById('f-lng')?.value || ''));
+  return pair ? { lat: pair.lat, lng: pair.lng } : { lat: null, lng: null };
+}
+
+async function saveClient() {
+  if (!canCreateClient()) { showToast('⚠️ Sin permiso para crear clientes'); return; }
+  const code = document.getElementById('f-code').value.trim();
+  const name = document.getElementById('f-name').value.trim();
+  if (!code && !name) { showToast('⚠️ Ingresa al menos el código o el nombre'); return; }
+  if (code && (window._clients||[]).find(c => c.code === code)) { showToast('⚠️ Ya existe ese código'); return; }
+  if (!confirm('¿Confirmas guardar este cliente?')) return;
+  try {
+    await window._addDoc(window._clientsCol, {
+      code, name: document.getElementById('f-name').value.trim(),
+      address: document.getElementById('f-address').value.trim(),
+      comuna: document.getElementById('f-comuna').value.trim(),
+      medidor: document.getElementById('f-medidor').value.trim(),
+      phone: document.getElementById('f-phone').value.trim(),
+      contact: document.getElementById('f-contact').value.trim(),
+      notes: document.getElementById('f-notes').value.trim(),
+      ...getFormCoords(),
+      createdAt: new Date().toISOString(),
+      createdByRole: window._isAdmin ? 'admin' : 'chofer'
+    });
+    closeAddModal();
+    showToast('✅ Cliente guardado');
+  } catch(e) { showToast('❌ Error: ' + e.message); }
+}
+
+function editClient(id) {
+  if (!canManageClient()) { showToast('⚠️ Solo administrador puede editar'); return; }
+  const c = (window._clients||[]).find(x => x.id === id);
+  if (!c) return;
+  document.getElementById('f-code').value = c.code||'';
+  document.getElementById('f-name').value = c.name||'';
+  document.getElementById('f-address').value = c.address||'';
+  document.getElementById('f-comuna').value = c.comuna||'';
+  document.getElementById('f-medidor').value = c.medidor||'';
+  document.getElementById('f-phone').value = c.phone||'';
+  document.getElementById('f-contact').value = c.contact||'';
+  document.getElementById('f-notes').value = c.notes||'';
+  const hasGeo = hasClientGeo(c);
+  const lat = clientLat(c), lng = clientLng(c);
+  document.getElementById('f-lat').value = hasGeo ? lat.toFixed(6) : '';
+  document.getElementById('f-lng').value = hasGeo ? lng.toFixed(6) : '';
+  document.getElementById('f-coords').value = hasGeo ? lat.toFixed(6) + ',' + lng.toFixed(6) : '';
+  document.getElementById('modal-title').textContent = 'Editar Cliente';
+  document.getElementById('modal-save-btn').textContent = '☁️ Actualizar';
+  document.getElementById('modal-save-btn').onclick = () => updateClient(id);
+  document.getElementById('add-modal').classList.add('open');
+}
+
+async function updateClient(id) {
+  if (!canManageClient()) { showToast('⚠️ Solo administrador puede actualizar'); return; }
+  const code = document.getElementById('f-code').value.trim();
+  const nameVal = document.getElementById('f-name').value.trim();
+  if (!code && !nameVal) { showToast('⚠️ Ingresa al menos el código o el nombre'); return; }
+  try {
+    await window._updateDoc(window._doc(window._db, 'clientes', id), {
+      code, name: document.getElementById('f-name').value.trim(),
+      address: document.getElementById('f-address').value.trim(),
+      comuna: document.getElementById('f-comuna').value.trim(),
+      medidor: document.getElementById('f-medidor').value.trim(),
+      phone: document.getElementById('f-phone').value.trim(),
+      contact: document.getElementById('f-contact').value.trim(),
+      notes: document.getElementById('f-notes').value.trim(),
+      ...getFormCoords(),
+    });
+    closeAddModal();
+    showToast('✅ Cliente actualizado');
+    showDetail(id);
+  } catch(e) { showToast('❌ Error: ' + e.message); }
+}
+
+// RUTA
+function renderRutaSelector() {
+  window._selectedRouteIds = new Set();
+  const clients = window._clients||[];
+  const selector = document.getElementById('ruta-selector');
+  if (clients.length === 0) { selector.innerHTML = '<div class="empty"><div class="empty-icon">📋</div><h3>Sin clientes</h3></div>'; return; }
+  selector.innerHTML = '<div class="search-box" style="margin-bottom:12px"><span>🔍</span><input type="text" id="ruta-search" placeholder="Buscar cliente..." oninput="renderRutaSearch()" style="background:none;border:none;outline:none;color:var(--text);font-family:\'DM Sans\',sans-serif;font-size:15px;width:100%"></div><div id="ruta-search-results"></div><div id="ruta-selected-list"></div>';
+  renderRutaSearch();
+  renderSelectedList();
+}
+
+function renderRutaSearch() {
+  const q = (document.getElementById('ruta-search')?.value||'').toLowerCase().trim();
+  const results = document.getElementById('ruta-search-results');
+  if (!results) return;
+  if (!q) { results.innerHTML = '<p style="font-size:12px;color:var(--text2);margin-bottom:8px">Escribe para buscar clientes</p>'; return; }
+  const filtered = (window._clients||[]).filter(c => {
+    const search = q.toLowerCase();
+    return !window._selectedRouteIds.has(c.id) && (
+      (c.code||'').toLowerCase().includes(search) ||
+      (c.name||'').toLowerCase().includes(search) ||
+      (c.address||'').toLowerCase().includes(search) ||
+      (c.comuna||'').toLowerCase().includes(search) ||
+      (c.medidor||'').toLowerCase().includes(search)
+    );
+  }).slice(0, 20);
+  if (!filtered.length) { results.innerHTML = '<p style="font-size:13px;color:var(--text2)">Sin resultados</p>'; return; }
+  results.innerHTML = filtered.map(c =>
+    '<div style="background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px" onclick="addToRoute(\'' + c.id + '\')">' +
+    '<div style="flex:1"><div style="font-family:\'Bebas Neue\',sans-serif;font-size:18px;color:var(--accent)">' + escapeHTML(c.code) + '</div>' +
+    '<div style="font-size:13px;font-weight:500">' + escapeHTML(c.name) + '</div>' +
+    '<div style="font-size:11px;color:var(--text2)">' + (c.address||'') + (c.comuna?', '+c.comuna:'') + (!hasClientGeo(c)?' · ⚠️ Sin GPS':'') + '</div></div>' +
+    '<button style="background:var(--accent);border:none;color:white;width:32px;height:32px;border-radius:50%;font-size:18px;cursor:pointer">+</button></div>'
+  ).join('');
+}
+
+function addToRoute(id) {
+  window._selectedRouteIds.add(id);
+  document.getElementById('ruta-search').value = '';
+  renderRutaSearch();
+  renderSelectedList();
+  updateRouteBtn();
+}
+
+function removeFromRoute(id) {
+  window._selectedRouteIds.delete(id);
+  renderRutaSearch();
+  renderSelectedList();
+  updateRouteBtn();
+  if (_rutaMap) { _rutaMap.remove(); _rutaMap = null; document.getElementById('map-container').style.display='none'; }
+}
+
+function renderSelectedList() {
+  const list = document.getElementById('ruta-selected-list');
+  if (!list) return;
+  const selected = Array.from(window._selectedRouteIds).map(id=>(window._clients||[]).find(c=>c.id===id)).filter(Boolean);
+  if (!selected.length) { list.innerHTML = '<p style="font-size:12px;color:var(--text2);margin-top:8px">Sin clientes seleccionados</p>'; return; }
+  list.innerHTML = '<p style="font-size:12px;color:var(--text2);margin-bottom:8px">✅ ' + selected.length + ' cliente(s):</p>' +
+    selected.map(c =>
+      '<div style="background:var(--surface);border:1px solid rgba(46,204,113,0.3);border-radius:10px;padding:10px 14px;margin-bottom:8px;display:flex;align-items:center;gap:10px">' +
+      '<div style="flex:1"><span style="font-family:\'Bebas Neue\',sans-serif;font-size:16px;color:var(--accent)">' + escapeHTML(c.code) + '</span> <span style="font-size:13px">' + escapeHTML(c.name) + '</span>' +
+      (c.notes ? '<div style="font-size:11px;color:var(--accent)">📝 ' + escapeHTML(c.notes) + '</div>' : '') + '</div>' +
+      '<button onclick="removeFromRoute(\'' + c.id + '\')" style="background:rgba(231,76,60,0.15);border:none;color:var(--red);width:28px;height:28px;border-radius:50%;font-size:14px;cursor:pointer">✕</button></div>'
+    ).join('');
+}
+
+function updateRouteBtn() {
+  document.getElementById('gen-route-btn').style.display = window._selectedRouteIds.size >= 1 ? 'block' : 'none';
+}
+
+function resetRutaMap() {
+  if (_rutaMap) { _rutaMap.remove(); _rutaMap = null; }
+  document.getElementById('map-container').style.display = 'none';
+  document.getElementById('ruta-result').innerHTML = '';
+}
+
+function generateRoute() {
+  const selected = Array.from(window._selectedRouteIds).map(id=>(window._clients||[]).find(c=>c.id===id)).filter(Boolean);
+  const withGeo = selected.filter(c=>hasClientGeo(c));
+  const noGeo = selected.filter(c=>!hasClientGeo(c));
+
+  document.getElementById('map-container').style.display = 'block';
+  if (_rutaMap) { _rutaMap.remove(); _rutaMap = null; }
+
+  const centerLat = withGeo.length ? withGeo.reduce((s,c)=>s+clientLat(c),0)/withGeo.length : (window._userLat||-32.929122);
+  const centerLng = withGeo.length ? withGeo.reduce((s,c)=>s+clientLng(c),0)/withGeo.length : (window._userLng||-71.487676);
+
+  _rutaMap = L.map('ruta-map').setView([centerLat, centerLng], 11);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '© OpenStreetMap' }).addTo(_rutaMap);
+
+  if (window._userLat) {
+    L.circleMarker([window._userLat, window._userLng], { radius:10, fillColor:'#3498db', color:'white', weight:3, opacity:1, fillOpacity:1 }).addTo(_rutaMap).bindPopup('<b>📍 Tu ubicación</b>');
+  }
+
+  const orangeIcon = L.divIcon({
+    className: '',
+    html: '<div style="background:#f5a623;width:32px;height:32px;border-radius:50% 50% 50% 0;transform:rotate(-45deg);border:3px solid white;box-shadow:0 2px 8px rgba(0,0,0,0.4)"></div>',
+    iconSize:[32,32], iconAnchor:[16,32], popupAnchor:[0,-32]
+  });
+
+  withGeo.forEach(c => {
+    const lat = clientLat(c), lng = clientLng(c);
+    const dist = window._userLat ? ' · 📏 ' + formatDistance(calcDistance(window._userLat, window._userLng, lat, lng)) : '';
+    const popup = '<div style="min-width:180px;font-family:sans-serif">' +
+      '<div style="font-weight:700;font-size:15px;margin-bottom:4px">' + escapeHTML(c.code) + '</div>' +
+      '<div style="font-size:13px;margin-bottom:2px">' + escapeHTML(c.name) + '</div>' +
+      '<div style="font-size:12px;color:#666;margin-bottom:8px">' + escapeHTML(c.address) + (c.comuna?', '+escapeHTML(c.comuna):'') + dist + '</div>' +
+      (c.notes ? '<div style="font-size:11px;color:#e67e22;margin-bottom:8px">📝 ' + escapeHTML(c.notes) + '</div>' : '') +
+      '<div style="display:flex;gap:6px">' +
+      '<a href="https://www.google.com/maps/dir/?api=1&destination=' + lat + ',' + lng + '&travelmode=driving" target="_blank" style="flex:1;background:#4285f4;color:white;padding:7px;border-radius:8px;text-align:center;text-decoration:none;font-size:12px;font-weight:600">🗺️ Maps</a>' +
+      '<a href="waze://?ll=' + lat + ',' + lng + '&navigate=yes" target="_blank" style="flex:1;background:#33ccff;color:#000;padding:7px;border-radius:8px;text-align:center;text-decoration:none;font-size:12px;font-weight:600">🚗 Waze</a>' +
+      '</div></div>';
+    L.marker([lat, lng], {icon: orangeIcon}).addTo(_rutaMap).bindPopup(popup);
+  });
+
+  if (withGeo.length > 0) {
+    const bounds = L.latLngBounds(withGeo.map(c=>[clientLat(c),clientLng(c)]));
+    if (window._userLat) bounds.extend([window._userLat, window._userLng]);
+    _rutaMap.fitBounds(bounds, {padding:[40,40]});
+  }
+
+  document.getElementById('ruta-result').innerHTML = noGeo.length > 0 ?
+    '<div style="margin-top:12px;background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:14px"><p style="font-size:12px;color:var(--red);margin-bottom:8px">⚠️ Sin GPS (no aparecen en mapa):</p>' +
+    noGeo.map(c=>'<div style="font-size:13px;padding:4px 0;color:var(--text2)">• ' + escapeHTML(c.code) + ' — ' + escapeHTML(c.name) + '</div>').join('') + '</div>' : '';
+}
+
+// OCR
+function normalizeOCRText(text) {
+  return String(text || '')
+    .toUpperCase()
+    .replace(/[|]/g, 'I')
+    .replace(/\s+/g, ' ')
+    .trim();
+}
+
+function parseClientFromPedidoImage(text) {
+  const get = (regex) => {
+    const m = text.match(regex);
+    return m ? m[1].trim() : '';
+  };
+
+  const clean = (val) => String(val || '')
+    .replace(/^[\s\-\.]+|[\s\-\.]+$/g, '')
+    .replace(/\s{2,}/g, ' ')
+    .trim();
+
+  // Codigo - Formato 1: "CODIGO CLIENTE : CN_001" / Formato 2: "CODIGO 0011015339"
+  let code = get(/C[OÓ]DIGO CLIENTE\s*[:\s]+([A-Z0-9_\-]+)/i);
+  if (!code) code = get(/C[OÓ]DIGO\s+([A-Z0-9_\-]+)/i);
+  code = clean(code);
+
+  // Nombre - Formato 1: "NOMBRE CLIENTE : ABASTIBLE..." / Formato 2: "CLIENTE ROBERTO..."
+  let name = get(/NOMBRE CLIENTE\s*[:\s]+(.+?)(?=\s+TEL|\s+RUT|\s+ZONA|\s+TIPO|\s+C\.ENTREGA|\s+NRO|$)/i);
+  if (!name) name = get(/^CLIENTE\s+(.+?)(?=\s+C[OÓ]DIGO|\s+RUT|\s*$)/im);
+  name = clean(name);
+
+  // Direccion - Formato 1: "Direccion : CARRERA 1676" / Formato 2: "DIRECCION  RUTA E-46..."
+  let address = get(/DIRECCI[OÓ]N\s*[:\s]+(.+?)(?=\s+COMUNA)/i);
+  if (!address) address = get(/DIRECCI[OÓ]N\s+(.+?)(?=COMUNA|$)/i);
+  address = clean(address);
+
+  // Comuna
+  let comuna = get(/COMUNA\s*[:\s]+(.+?)(?=\s+TIPO|\s+RUT|\s+TEL|\s+REFER|\s+PRECIO|\s+CUPO|\.)/i);
+  if (!comuna) comuna = get(/COMUNA\s+(.+?)(?=\s+REFERENCIAS|\s+RUT|\s+TEL|\s+PRECIO|\s+CUPO|$)/i);
+  comuna = clean(comuna);
+
+  // Telefono
+  let phone = get(/TEL[EÉ]FONO\s*[:\s]*([0-9]{7,})/i);
+  phone = clean(phone);
+
+  // RUT
+  let rut = get(/RUT CLIENTE\s*[:\s]+([0-9]+[K\-0-9]+)/i);
+  if (!rut) rut = get(/^RUT\s+([0-9]+[K\-0-9]+)/im);
+  rut = clean(rut);
+
+  // Ventana horaria
+  const ventana = clean(get(/VENTANA HORARIA\s*[:\s]*([0-9]{1,2}:[0-9]{2}\s*[-]\s*[0-9]{1,2}:[0-9]{2})/i));
+
+  // Contacto
+  let contact = get(/CONTACTO\s*[:\s]+(.+?)(?=\s+\+\s+MEDIO PAGO|$)/i);
+  contact = clean((contact || '').replace(/\+/g, ''));
+
+  const notesParts = [];
+  if (rut)     notesParts.push('RUT: ' + rut);
+  if (ventana) notesParts.push('Ventana: ' + ventana);
+  if (contact) notesParts.push('Contacto: ' + contact);
+
+  return { code, name, address, comuna, medidor: '', phone, contact, notes: notesParts.join(' | ') };
+}
+async function autoImportClientFromImage() {
+  const file = document.getElementById('img-client')?.files[0];
+  if (!file) { showToast('⚠️ Selecciona una imagen'); return; }
+  showToast('📷 Procesando imagen...');
+  try {
+    const result = await Tesseract.recognize(file, 'spa', {
+      tessedit_pageseg_mode: '6'
+    });
+    const text   = normalizeOCRText(result.data.text);
+    console.log('OCR text:', text); // for debugging
+    const client = parseClientFromPedidoImage(text);
+
+    if (!client.code && !client.name) {
+      showToast('⚠️ No se detectaron datos. Ingresa manualmente');
+      return;
+    }
+
+    if (client.code)    document.getElementById('f-code').value    = client.code;
+    if (client.name)    document.getElementById('f-name').value    = client.name;
+    if (client.address) document.getElementById('f-address').value = client.address;
+    if (client.comuna)  document.getElementById('f-comuna').value  = client.comuna;
+    if (client.phone)   document.getElementById('f-phone').value   = client.phone;
+    if (client.contact) document.getElementById('f-contact').value = client.contact;
+    if (client.notes)   document.getElementById('f-notes').value   = client.notes;
+
+    showToast('✅ Datos detectados — revisa y guarda');
+  } catch(e) {
+    console.error(e);
+    showToast('❌ Error leyendo imagen');
+  }
+}
+
+// TOAST
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.className = 'toast show';
+  setTimeout(() => t.className = 'toast', 3000);
+}
+</script>
+</body>
+</html>
